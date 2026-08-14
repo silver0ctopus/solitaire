@@ -253,23 +253,27 @@
       });
     }
 
-    /* --- ЛОГИКА DRAG & DROP (Мышь + Тач) --- */
+    /* --- ЛОГИКА DRAG & DROP (Исправленная) --- */
     function setupDragEvents(cardEl, source, cardData) {
       const onStart = (clientX, clientY) => {
         draggedCard = cardData;
         sourceLoc = source;
-        dragEl = cardEl;
 
         const rect = cardEl.getBoundingClientRect();
         touchOffsetX = clientX - rect.left;
         touchOffsetY = clientY - rect.top;
 
-        cardEl.classList.add('dragging');
-        cardEl.style.width = rect.width + 'px';
-        cardEl.style.height = rect.height + 'px';
-        cardEl.style.left = (clientX - touchOffsetX) + 'px';
-        cardEl.style.top = (clientY - touchOffsetY) + 'px';
-        document.body.appendChild(cardEl);
+        // Создаем временный элемент-клона ДЛЯ ТАСКАНИЯ
+        dragEl = cardEl.cloneNode(true);
+        dragEl.classList.add('dragging');
+        dragEl.style.width = rect.width + 'px';
+        dragEl.style.height = rect.height + 'px';
+        dragEl.style.left = (clientX - touchOffsetX) + 'px';
+        dragEl.style.top = (clientY - touchOffsetY) + 'px';
+        document.body.appendChild(dragEl);
+
+        // Оригинальную карту временно скрываем, пока тащим
+        cardEl.style.opacity = '0';
       };
 
       const onMove = (clientX, clientY) => {
@@ -281,10 +285,9 @@
       const onEnd = (clientX, clientY) => {
         if (!dragEl) return;
 
-        // Ищем элемент под пальцем/курсором
-        dragEl.style.display = 'none'; // временно скрываем, чтобы findElement target определился корректно
+        // Временно скрываем клона, чтобы определить элемент ПОД ним
+        dragEl.style.display = 'none';
         const dropTarget = document.elementFromPoint(clientX, clientY);
-        dragEl.style.display = '';
 
         let validMove = false;
         if (dropTarget) {
@@ -294,10 +297,11 @@
           }
         }
 
-        dragEl.classList.remove('dragging');
+        // ОБЯЗАТЕЛЬНО УДАЛЯЕМ временный перетаскиваемый элемент из DOM!
+        dragEl.remove();
         dragEl = null;
 
-        // В любом случае перерисовываем поле
+        // Перерисовываем актуальное состояние поля
         renderAll();
       };
 
@@ -316,7 +320,7 @@
         window.addEventListener('mouseup', upHandler);
       });
 
-      // Сенсорные события (смартфон)
+      // Сенсорные события (для смартфонов)
       cardEl.addEventListener('touchstart', (e) => {
         const touch = e.touches[0];
         onStart(touch.clientX, touch.clientY);
