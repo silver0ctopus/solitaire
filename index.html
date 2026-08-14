@@ -9,31 +9,31 @@
     :root {
       --bg-color: #114220;
       --bg-gradient: radial-gradient(circle, #1a5e30 0%, #0c3318 100%);
-      --card-width: 56px;
-      --card-height: 84px;
+      --card-width: 56px;   /* Чуть больше, почти как было (было 58px) */
+      --card-height: 80px;  /* Отличный читаемый размер (было 84px) */
       --card-radius: 6px;
-      --overlap-x: 20px;
+      --overlap-x: 18px;    /* Сохранили прежний комфортный нахлёст */
     }
 
     * { box-sizing: border-box; user-select: none; }
     body {
-      margin: 0; padding: 8px 4px;
+      margin: 0; padding: 6px 6px; /* Чуть сжали внешние отступы экрана */
       background: var(--bg-color);
       background: var(--bg-gradient);
       min-height: 100vh;
       color: #fff; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
       display: flex; flex-direction: column; align-items: center;
-      touch-action: none; /* Запрет скролла во время Drag&Drop */
+      touch-action: none;
     }
 
     /* Верхние зоны (фундамент) */
     .top-bar {
-      display: flex; gap: 10px; margin-bottom: 20px; width: 100%; max-width: 400px;
+      display: flex; gap: 5px; margin-bottom: 10px; width: 100%; max-width: 390px;
       justify-content: center;
     }
     .slot {
       width: var(--card-width); height: var(--card-height);
-      border: 2px dashed rgba(255,255,255,0.35);
+      border: 1.5px dashed rgba(255,255,255,0.35);
       background: rgba(0, 0, 0, 0.15);
       border-radius: var(--card-radius);
       display: flex; justify-content: center; align-items: center;
@@ -48,7 +48,7 @@
     /* Игровое поле */
     .board {
       display: grid; grid-template-columns: repeat(3, 1fr);
-      gap: 8px; width: 100%; max-width: 380px; margin-bottom: 8px;
+      gap: 8px; width: 100%; max-width: 390px; margin-bottom: 12px;
     }
 
     .triplet {
@@ -67,8 +67,8 @@
       background: #ffffff; color: #111827;
       border: 1px solid #9ca3af;
       position: absolute; top: 0;
-      box-shadow: 1px 2px 4px rgba(0,0,0,0.4);
-      padding: 3px 4px; font-weight: bold; font-size: 12px;
+      box-shadow: 1px 2px 5px rgba(0,0,0,0.4);
+      padding: 4px 5px; font-weight: bold; font-size: 13px;
       cursor: grab; line-height: 1.1;
       display: flex; flex-direction: column; align-items: flex-start;
       transition: transform 0.15s ease, box-shadow 0.15s ease;
@@ -79,37 +79,34 @@
       justify-content: center; align-items: center; font-size: 22px;
     }
 
-    /* Карты в фундаменте */
     .slot .card {
       position: absolute; left: 0; top: 0;
     }
 
-    /* Состояние таскания */
     .card.dragging {
       opacity: 0.9;
       cursor: grabbing;
       z-index: 1000 !important;
-      box-shadow: 0 9px 18px rgba(0,0,0,0.5);
+      box-shadow: 0 10px 20px rgba(0,0,0,0.5);
       transition: none !important;
     }
 
-    /* Позиционирование карт в тройках */
     .triplet .card:nth-child(1) { left: 0px; z-index: 1; }
     .triplet .card:nth-child(2) { left: var(--overlap-x); z-index: 2; }
     .triplet .card:nth-child(3) { left: calc(var(--overlap-x) * 2); z-index: 3; }
 
-    /* Панель управления — ВСЁ В ОДНУ СТРОКУ */
-    .controls { display: flex; width: 100%; max-width: 380px; justify-content: center; }
+    /* Панель управления — кнопки крупнее, в один ряд со счетчиком */
+    .controls { display: flex; width: 100%; max-width: 390px; justify-content: center; }
     .btn-group { 
       display: flex; 
-      gap: 20px; 
+      gap: 8px; 
       align-items: center; 
       justify-content: space-between; 
       width: 100%; 
     }
     button {
-      padding: 10px 10px; border: none; border-radius: 6px;
-      font-weight: bold; font-size: 12px; background: #2563eb; color: #fff; cursor: pointer;
+      padding: 9px 12px; border: none; border-radius: 8px;
+      font-weight: bold; font-size: 13px; background: #2563eb; color: #fff; cursor: pointer;
       box-shadow: 0 2px 4px rgba(0,0,0,0.3);
       white-space: nowrap;
     }
@@ -118,8 +115,8 @@
       font-size: 13px; font-weight: 600; text-shadow: 0 1px 2px rgba(0,0,0,0.5);
       white-space: nowrap;
       background: rgba(0,0,0,0.25);
-      padding: 6px 10px;
-      border-radius: 6px;
+      padding: 7px 10px;
+      border-radius: 8px;
     }
   </style>
 </head>
