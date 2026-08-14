@@ -1,1 +1,174 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Telegram Solitaire</title>
+  <!-- Telegram WebApp SDK -->
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    :root {
+      --bg-color: #1e3a8a;
+      --card-width: 65px;
+      --card-height: 95px;
+      --card-radius: 6px;
+    }
 
+    * { box-sizing: border-box; user-select: none; }
+    body {
+      margin: 0; padding: 10px;
+      background: var(--bg-color);
+      color: #fff; font-family: sans-serif;
+      display: flex; flex-direction: column; align-items: center;
+    }
+
+    /* Верхние зоны (фундамент) */
+    .top-bar {
+      display: flex; gap: 8px; margin-bottom: 15px; width: 100%; max-width: 400px;
+      justify-content: space-between;
+    }
+    .slot {
+      width: var(--card-width); height: var(--card-height);
+      border: 2px dashed rgba(255,255,255,0.4);
+      border-radius: var(--card-radius);
+      display: flex; justify-content: center; align-items: center;
+      position: relative; font-weight: bold; font-size: 18px;
+    }
+
+    /* Игровое поле: 3 столбца */
+    .board {
+      display: grid; grid-template-columns: repeat(3, 1fr);
+      gap: 10px; width: 100%; max-width: 400px; margin-bottom: 20px;
+    }
+    .triplet {
+      min-height: calc(var(--card-height) + 40px);
+      position: relative;
+      background: rgba(0,0,0,0.15);
+      border-radius: var(--card-radius);
+    }
+
+    /* Стиль карты */
+    .card {
+      width: var(--card-width); height: var(--card-height);
+      border-radius: var(--card-radius);
+      background: #fff; color: #000;
+      border: 1px solid #ccc;
+      position: absolute; left: 0;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+      padding: 4px; font-weight: bold; font-size: 14px;
+      cursor: pointer;
+    }
+    .card.red { color: #dc2626; }
+    .card.joker { background: #fef08a; color: #7c2d12; text-align: center; line-height: 80px; }
+
+    /* Позиционирование карт в тройке (внахлест) */
+    .card:nth-child(1) { top: 0px; z-index: 1; }
+    .card:nth-child(2) { top: 20px; z-index: 2; }
+    .card:nth-child(3) { top: 40px; z-index: 3; }
+
+    /* Панель кнопок */
+    .controls { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+    .btn-group { display: flex; gap: 10px; }
+    button {
+      padding: 10px 16px; border: none; border-radius: 8px;
+      font-weight: bold; background: #3b82f6; color: #fff; cursor: pointer;
+    }
+    button:disabled { background: #64748b; opacity: 0.6; cursor: not-allowed; }
+  </style>
+</head>
+<body>
+
+  <!-- 1. Фундамент + Слоты для Джокеров -->
+  <div class="top-bar">
+    <div class="slot foundation" data-suit="♠">♠</div>
+    <div class="slot foundation" data-suit="♥">♥</div>
+    <div class="slot foundation" data-suit="♦">♦</div>
+    <div class="slot foundation" data-suit="♣">♣</div>
+    <div class="slot joker-slot">🃏</div>
+    <div class="slot joker-slot">🃏</div>
+  </div>
+
+  <!-- 2. Игровое поле (18 троек) -->
+  <div class="board" id="board"></div>
+
+  <!-- 3. Кнопки и Счётчик -->
+  <div class="controls">
+    <div class="btn-group">
+      <button id="btn-reset">Обновить</button>
+      <button id="btn-prize" disabled>Получить приз</button>
+    </div>
+    <div>Побед: <span id="win-count">0</span></div>
+  </div>
+
+  <script>
+    const SUITS = ['♠', '♥', '♦', '♣'];
+    const RANKS = [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]; // 11=J, 12=Q, 13=K, 14=A
+    let wins = 0;
+    let boardData = []; // Массив из 18 троек
+
+    function createDeck() {
+      let deck = [];
+      for (let s of SUITS) {
+        for (let r of RANKS) {
+          deck.push({ suit: s, rank: r, isJoker: false });
+        }
+      }
+      deck.push({ suit: '', rank: 0, isJoker: true });
+      deck.push({ suit: '', rank: 0, isJoker: true });
+      return deck.sort(() => Math.random() - 0.5); // Простая тасовка
+    }
+
+    function initGame() {
+      const deck = createDeck();
+      boardData = [];
+      
+      // Делим 54 карты на 18 троек
+      for (let i = 0; i < 18; i++) {
+        boardData.push(deck.splice(0, 3));
+      }
+      
+      renderBoard();
+    }
+
+    function getRankLabel(rank) {
+      if (rank === 11) return 'J';
+      if (rank === 12) return 'Q';
+      if (rank === 13) return 'K';
+      if (rank === 14) return 'A';
+      return rank;
+    }
+
+    function renderBoard() {
+      const boardEl = document.getElementById('board');
+      boardEl.innerHTML = '';
+
+      boardData.forEach((triplet, tIndex) => {
+        const tripletEl = document.createElement('div');
+        tripletEl.className = 'triplet';
+
+        triplet.forEach((card, cIndex) => {
+          const cardEl = document.createElement('div');
+          cardEl.className = 'card';
+          
+          if (card.isJoker) {
+            cardEl.classList.add('joker');
+            cardEl.textContent = '🃏';
+          } else {
+            if (card.suit === '♥' || card.suit === '♦') cardEl.classList.add('red');
+            cardEl.textContent = `${card.suit}${getRankLabel(card.rank)}`;
+          }
+
+          tripletEl.appendChild(cardEl);
+        });
+
+        boardEl.appendChild(tripletEl);
+      });
+    }
+
+    document.getElementById('btn-reset').addEventListener('click', initGame);
+
+    // Запуск первой раздачи
+    initGame();
+  </script>
+</body>
+</html>
