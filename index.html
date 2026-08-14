@@ -72,7 +72,10 @@
       box-shadow: 1px 2px 5px rgba(0,0,0,0.4);
       padding: 4px 5px; font-weight: bold; font-size: 13px;
       cursor: pointer;
-      line-height: 1;
+      line-height: 1.1; /* Слегка уменьшаем межстрочный интервал */
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
     }
     .card.red { color: #dc2626; }
     .card.joker { 
@@ -181,7 +184,8 @@
             cardEl.textContent = '🃏';
           } else {
             if (card.suit === '♥' || card.suit === '♦') cardEl.classList.add('red');
-            cardEl.textContent = `${card.suit}${getRankLabel(card.rank)}`;
+            // Ранг сверху, масть под ним
+            cardEl.innerHTML = `<div>${getRankLabel(card.rank)}</div><div>${card.suit}</div>`;
           }
 
           tripletEl.appendChild(cardEl);
