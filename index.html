@@ -8,31 +8,42 @@
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <style>
     :root {
-      --bg-color: #1e3a8a;
-      --card-width: 65px;
-      --card-height: 95px;
+      /* Классическое зелёное сукно */
+      --bg-color: #114220;
+      --bg-gradient: radial-gradient(circle, #1a5e30 0%, #0c3318 100%);
+      --card-width: 58px;
+      --card-height: 84px;
       --card-radius: 6px;
+      --overlap-x: 18px; /* Сдвиг карт в тройке вправо */
     }
 
     * { box-sizing: border-box; user-select: none; }
     body {
-      margin: 0; padding: 10px;
+      margin: 0; padding: 12px 8px;
       background: var(--bg-color);
-      color: #fff; font-family: sans-serif;
+      background: var(--bg-gradient);
+      min-height: 100vh;
+      color: #fff; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
       display: flex; flex-direction: column; align-items: center;
     }
 
     /* Верхние зоны (фундамент) */
     .top-bar {
-      display: flex; gap: 8px; margin-bottom: 15px; width: 100%; max-width: 400px;
-      justify-content: space-between;
+      display: flex; gap: 6px; margin-bottom: 16px; width: 100%; max-width: 400px;
+      justify-content: center;
     }
     .slot {
       width: var(--card-width); height: var(--card-height);
-      border: 2px dashed rgba(255,255,255,0.4);
+      border: 2px dashed rgba(255,255,255,0.35);
+      background: rgba(0, 0, 0, 0.15);
       border-radius: var(--card-radius);
       display: flex; justify-content: center; align-items: center;
       position: relative; font-weight: bold; font-size: 18px;
+      color: rgba(255,255,255,0.6);
+    }
+    .slot.joker-slot {
+      border-color: rgba(253, 224, 71, 0.4);
+      color: rgba(253, 224, 71, 0.7);
     }
 
     /* Игровое поле: 3 столбца */
@@ -40,70 +51,85 @@
       display: grid; grid-template-columns: repeat(3, 1fr);
       gap: 10px; width: 100%; max-width: 400px; margin-bottom: 20px;
     }
+
+    /* Горизонтальная тройка */
     .triplet {
-      min-height: calc(var(--card-height) + 40px);
+      width: 100%;
+      height: var(--card-height);
       position: relative;
-      background: rgba(0,0,0,0.15);
+      background: rgba(0, 0, 0, 0.2);
       border-radius: var(--card-radius);
+      border: 1px dashed rgba(255, 255, 255, 0.15);
     }
 
     /* Стиль карты */
     .card {
       width: var(--card-width); height: var(--card-height);
       border-radius: var(--card-radius);
-      background: #fff; color: #000;
-      border: 1px solid #ccc;
-      position: absolute; left: 0;
-      box-shadow: 0 2px 5px rgba(0,0,0,0.3);
-      padding: 4px; font-weight: bold; font-size: 14px;
+      background: #ffffff; color: #111827;
+      border: 1px solid #9ca3af;
+      position: absolute; top: 0;
+      box-shadow: 1px 2px 5px rgba(0,0,0,0.4);
+      padding: 4px 5px; font-weight: bold; font-size: 13px;
       cursor: pointer;
+      line-height: 1;
     }
     .card.red { color: #dc2626; }
-    .card.joker { background: #fef08a; color: #7c2d12; text-align: center; line-height: 80px; }
+    .card.joker { 
+      background: #fef08a; 
+      color: #854d0e; 
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 22px;
+    }
 
-    /* Позиционирование карт в тройке (внахлест) */
-    .card:nth-child(1) { top: 0px; z-index: 1; }
-    .card:nth-child(2) { top: 20px; z-index: 2; }
-    .card:nth-child(3) { top: 40px; z-index: 3; }
+    /* Горизонтальное позиционирование карт внахлёст (слева направо) */
+    .card:nth-child(1) { left: 0px; z-index: 1; }
+    .card:nth-child(2) { left: var(--overlap-x); z-index: 2; }
+    .card:nth-child(3) { left: calc(var(--overlap-x) * 2); z-index: 3; }
 
-    /* Панель кнопок */
-    .controls { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+    /* Панель управления */
+    .controls { display: flex; flex-direction: column; align-items: center; gap: 12px; }
     .btn-group { display: flex; gap: 10px; }
     button {
-      padding: 10px 16px; border: none; border-radius: 8px;
-      font-weight: bold; background: #3b82f6; color: #fff; cursor: pointer;
+      padding: 10px 18px; border: none; border-radius: 8px;
+      font-weight: bold; font-size: 14px; background: #2563eb; color: #fff; cursor: pointer;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+      transition: background 0.2s;
     }
-    button:disabled { background: #64748b; opacity: 0.6; cursor: not-allowed; }
+    button:active { transform: translateY(1px); }
+    button:disabled { background: #475569; opacity: 0.6; cursor: not-allowed; box-shadow: none; }
+    .wins { font-size: 15px; font-weight: 600; text-shadow: 0 1px 2px rgba(0,0,0,0.5); }
   </style>
 </head>
 <body>
 
-  <!-- 1. Фундамент + Слоты для Джокеров -->
+  <!-- 1. Фундамент: Джокер L | ♠ ♥ ♦ ♣ | Джокер R -->
   <div class="top-bar">
+    <div class="slot joker-slot">🃏</div>
     <div class="slot foundation" data-suit="♠">♠</div>
     <div class="slot foundation" data-suit="♥">♥</div>
     <div class="slot foundation" data-suit="♦">♦</div>
     <div class="slot foundation" data-suit="♣">♣</div>
-    <div class="slot joker-slot">🃏</div>
     <div class="slot joker-slot">🃏</div>
   </div>
 
   <!-- 2. Игровое поле (18 троек) -->
   <div class="board" id="board"></div>
 
-  <!-- 3. Кнопки и Счётчик -->
+  <!-- 3. Панель кнопок и счетчик -->
   <div class="controls">
     <div class="btn-group">
       <button id="btn-reset">Обновить</button>
       <button id="btn-prize" disabled>Получить приз</button>
     </div>
-    <div>Побед: <span id="win-count">0</span></div>
+    <div class="wins">Побед: <span id="win-count">0</span></div>
   </div>
 
   <script>
     const SUITS = ['♠', '♥', '♦', '♣'];
     const RANKS = [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]; // 11=J, 12=Q, 13=K, 14=A
-    let wins = 0;
     let boardData = []; // Массив из 18 троек
 
     function createDeck() {
@@ -115,7 +141,7 @@
       }
       deck.push({ suit: '', rank: 0, isJoker: true });
       deck.push({ suit: '', rank: 0, isJoker: true });
-      return deck.sort(() => Math.random() - 0.5); // Простая тасовка
+      return deck.sort(() => Math.random() - 0.5);
     }
 
     function initGame() {
@@ -142,11 +168,11 @@
       const boardEl = document.getElementById('board');
       boardEl.innerHTML = '';
 
-      boardData.forEach((triplet, tIndex) => {
+      boardData.forEach((triplet) => {
         const tripletEl = document.createElement('div');
         tripletEl.className = 'triplet';
 
-        triplet.forEach((card, cIndex) => {
+        triplet.forEach((card) => {
           const cardEl = document.createElement('div');
           cardEl.className = 'card';
           
@@ -167,7 +193,7 @@
 
     document.getElementById('btn-reset').addEventListener('click', initGame);
 
-    // Запуск первой раздачи
+    // Старт
     initGame();
   </script>
 </body>
