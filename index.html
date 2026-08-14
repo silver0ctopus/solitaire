@@ -172,20 +172,45 @@
       return deck.sort(() => Math.random() - 0.5);
     }
 
+    function isBoardPlayable(board) {
+      // Проверяем верхние (последние) карты во всех 18 тройках
+      for (let triplet of board) {
+        if (triplet.length > 0) {
+          const topCard = triplet[triplet.length - 1];
+          // Если на верхушке есть хотя бы одна Двойка или Джокер — ход точно есть!
+          if (topCard.isJoker || topCard.rank === 2) {
+            return true;
+          }
+        }
+      }
+      return false;
+    }
+
     function initGame() {
-      const deck = createDeck();
-      boardData = [];
+      let deck;
+      let validBoard = false;
+
+      // Автоматически пересдаем, пока не появится расклад с доступным первым ходом
+      while (!validBoard) {
+        deck = createDeck();
+        boardData = [];
+        
+        for (let i = 0; i < 18; i++) {
+          boardData.push(deck.splice(0, 3));
+        }
+
+        if (isBoardPlayable(boardData)) {
+          validBoard = true;
+        }
+      }
+
       foundations = { '♠': [], '♥': [], '♦': [], '♣': [] };
       jokerSlots = [[], []];
-
-      for (let i = 0; i < 18; i++) {
-        boardData.push(deck.splice(0, 3));
-      }
 
       document.getElementById('btn-prize').disabled = true;
       renderAll();
     }
-
+    
     function getRankLabel(rank) {
       if (rank === 11) return 'J';
       if (rank === 12) return 'Q';
