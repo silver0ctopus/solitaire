@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Telegram Solitaire</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    :root {
+      --bg-color: #114220;
+      --bg-gradient: radial-gradient(circle, #1a5e30 0%, #0c3318 100%);
+      --card-width: 56px;
+      --card-height: 80px;
+      --card-radius: 6px;
+      --overlap-x: 18px;
+    }
+
+    * { box-sizing: border-box; user-select: none; }
+    body {
+      margin: 0; padding: 6px 6px;
+      background: var(--bg-color);
+      background: var(--bg-gradient);
+      min-height: 100vh;
+      color: #fff; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      display: flex; flex-direction: column; align-items: center;
+      touch-action: none;
+    }
+
+    /* Верхняя зона (фундамент) */
+    .top-bar {
+      display: flex; gap: 5px; margin-bottom: 10px; width: 100%; max-width: 390px;
+      justify-content: center;
+    }
+    .slot {
+      width: var(--card-width); height: var(--card-height);
+      border: 1.5px dashed rgba(255,255,255,0.35);
+      background: rgba(0, 0, 0, 0.15);
+      border-radius: var(--card-radius);
+      display: flex; justify-content: center; align-items: center;
+      position: relative; font-weight: bold; font-size: 18px;
+      color: rgba(255,255,255,0.6);
+    }
+    .slot.joker-slot {
+      border-color: rgba(253, 224, 71, 0.4);
+      color: rgba(253, 224, 71, 0.7);
+    }
+
+    /* Игровое поле */
+    .board {
+      display: grid; grid-template-columns: repeat(3, 1fr);
+      gap: 8px; width: 100%; max-width: 390px; margin-bottom: 12px;
+    }
+
+    .triplet {
+      width: 100%;
+      height: var(--card-height);
+      position: relative;
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: var(--card-radius);
+      border: 1px dashed rgba(255, 255, 255, 0.15);
+    }
+
+    /* Стиль карты */
+    .card {
+      width: var(--card-width); height: var(--card-height);
+      border-radius: var(--card-radius);
+      background: #ffffff; color: #111827;
+      border: 1px solid #9ca3af;
+      position: absolute; top: 0;
+      box-shadow: 1px 2px 5px rgba(0,0,0,0.4);
+      padding: 4px 5px; font-weight: bold; font-size: 13px;
+      cursor: grab; line-height: 1.1;
+      display: flex; flex-direction: column; align-items: flex-start;
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+    .card.red { color: #dc2626; }
+    .card.joker { 
+      background: #fef08a; color: #854d0e; 
+      justify-content: center; align-items: center; font-size: 22px;
+    }
+
+    .slot .card {
+      position: absolute; left: 0; top: 0;
+    }
+
+    .card.dragging {
+      opacity: 0.9;
+      cursor: grabbing;
+      z-index: 1000 !important;
+      box-shadow: 0 10px 20px rgba(0,0,0,0.5);
+      transition: none !important;
+    }
+
+    .triplet .card:nth-child(1) { left: 0px; z-index: 1; }
+    .triplet .card:nth-child(2) { left: var(--overlap-x); z-index: 2; }
+    .triplet .card:nth-child(3) { left: calc(var(--overlap-x) * 2); z-index: 3; }
+
+    /* Панель управления */
+    .controls { display: flex; width: 100%; max-width: 390px; justify-content: center; }
+    .btn-group { 
+      display: flex; 
+      gap: 8px; 
+      align-items: center; 
+      justify-content: space-between; 
+      width: 100%; 
+    }
+    button {
+      padding: 9px 12px; border: none; border-radius: 8px;
+      font-weight: bold; font-size: 13px; background: #2563eb; color: #fff; cursor: pointer;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+      white-space: nowrap;
+    }
+    button:disabled { background: #475569; opacity: 0.6; cursor: not-allowed; box-shadow: none; }
+    .wins { 
+      font-size: 13px; font-weight: 600; text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+      white-space: nowrap;
+      background: rgba(0,0,0,0.25);
+      padding: 7px 10px;
+      border-radius: 8px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- 1. Фундамент: Джокер L | ♠ ♥ ♦ ♣ | Джокер R -->
+  <div class="top-bar" id="top-bar">
+    <div class="slot joker-slot" id="joker-slot-0" data-type="joker-slot">🃏</div>
+    <div class="slot foundation" id="suit-slot-♠" data-type="foundation" data-suit="♠">♠</div>
+    <div class="slot foundation" id="suit-slot-♥" data-type="foundation" data-suit="♥">♥</div>
+    <div class="slot foundation" id="suit-slot-♦" data-type="foundation" data-suit="♦">♦</div>
+    <div class="slot foundation" id="suit-slot-♣" data-type="foundation" data-suit="♣">♣</div>
+    <div class="slot joker-slot" id="joker-slot-1" data-type="joker-slot">🃏</div>
+  </div>
+
+  <!-- 2. Игровое поле (18 троек) -->
+  <div class="board" id="board"></div>
+
+  <!-- 3. Панель управления -->
+  <div class="controls">
+    <div class="btn-group">
+      <button id="btn-reset">Обновить</button>
+      <button id="btn-prize" disabled>Приз</button>
+      <div class="wins">Побед: <span id="win-count">0</span></div>
+    </div>
+  </div>
+
+  <script>
+    const SUITS = ['♠', '♥', '♦', '♣'];
+    const RANKS = [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14];
+    
+    let boardData = [];
+    let foundations = { '♠': [], '♥': [], '♦': [], '♣': [] };
+    let jokerSlots = [[], []];
+    let winCount = 0;
+
+    // Состояние Drag & Drop
+    let draggedCard = null;
+    let sourceLoc = null;
+    let dragEl = null;
+    let touchOffsetX = 0;
+    let touchOffsetY = 0;
+    let lastTapTime = 0;
+
+    function createDeck() {
+      let deck = [];
+      for (let s of SUITS) {
+        for (let r of RANKS) {
+          deck.push({ suit: s, rank: r, isJoker: false });
+        }
+      }
+      deck.push({ suit: '', rank: 0, isJoker: true });
+      deck.push({ suit: '', rank: 0, isJoker: true });
+      return deck.sort(() => Math.random() - 0.5);
+    }
+
+    function isBoardPlayable(board) {
+      for (let triplet of board) {
+        if (triplet.length > 0) {
+          const topCard = triplet[triplet.length - 1];
+          if (topCard.isJoker || topCard.rank === 2) return true;
+        }
+      }
+      return false;
+    }
+
+    function initGame() {
+      let deck;
+      let validBoard = false;
+
+      while (!validBoard) {
+        deck = createDeck();
+        boardData = [];
+        for (let i = 0; i < 18; i++) {
+          boardData.push(deck.splice(0, 3));
+        }
+        if (isBoardPlayable(boardData)) validBoard = true;
+      }
+
+      foundations = { '♠': [], '♥': [], '♦': [], '♣': [] };
+      jokerSlots = [[], []];
+
+      document.getElementById('btn-prize').disabled = true;
+      renderAll();
+    }
+
+    function getRankLabel(rank) {
+      if (rank === 11) return 'J';
+      if (rank === 12) return 'Q';
+      if (rank === 13) return 'K';
+      if (rank === 14) return 'A';
+      return rank;
+    }
+
+    function createCardElement(card) {
+      const cardEl = document.createElement('div');
+      cardEl.className = 'card';
+      if (card.isJoker) {
+        cardEl.classList.add('joker');
+        cardEl.textContent = '🃏';
+      } else {
+        if (card.suit === '♥' || card.suit === '♦') cardEl.classList.add('red');
+        cardEl.innerHTML = `<div>${getRankLabel(card.rank)}</div><div>${card.suit}</div>`;
+      }
+      return cardEl;
+    }
+
+    function renderAll() {
+      renderBoard();
+      renderFoundations();
+      checkWinCondition();
+    }
+
+    function renderBoard() {
+      const boardEl = document.getElementById('board');
+      boardEl.innerHTML = '';
+
+      boardData.forEach((triplet, tIndex) => {
+        const tripletEl = document.createElement('div');
+        tripletEl.className = 'triplet';
+        tripletEl.dataset.type = 'triplet';
+        tripletEl.dataset.index = tIndex;
+
+        triplet.forEach((card, cIndex) => {
+          const cardEl = createCardElement(card);
+          if (cIndex === triplet.length - 1) {
+            setupDragAndClickEvents(cardEl, { type: 'triplet', index: tIndex }, card);
+          }
+          tripletEl.appendChild(cardEl);
+        });
+
+        boardEl.appendChild(tripletEl);
+      });
+    }
+
+    function renderFoundations() {
+      SUITS.forEach(suit => {
+        const slotEl = document.getElementById(`suit-slot-${suit}`);
+        slotEl.querySelectorAll('.card').forEach(c => c.remove());
+        const stack = foundations[suit];
+        if (stack.length > 0) {
+          const topCard = stack[stack.length - 1];
+          const cardEl = createCardElement(topCard);
+          setupDragAndClickEvents(cardEl, { type: 'foundation', suit: suit }, topCard);
+          slotEl.appendChild(cardEl);
+        }
+      });
+
+      jokerSlots.forEach((slotCards, index) => {
+        const slotEl = document.getElementById(`joker-slot-${index}`);
+        slotEl.querySelectorAll('.card').forEach(c => c.remove());
+        if (slotCards.length > 0) {
+          const topCard = slotCards[slotCards.length - 1];
+          const cardEl = createCardElement(topCard);
+          setupDragAndClickEvents(cardEl, { type: 'jokerSlot', index: index }, topCard);
+          slotEl.appendChild(cardEl);
+        }
+      });
+    }
+
+    /* --- ЛОГИКА ДВОЙНОГО КЛИКА (ТОЛЬКО В ФУНДАМЕНТ) --- */
+    function autoMoveToFoundation(card, source) {
+      if (!card.isJoker) {
+        const stack = foundations[card.suit];
+        const currentTopRank = stack.length === 0 ? 1 : stack[stack.length - 1].rank;
+        if (card.rank === currentTopRank + 1) {
+          removeCardFromSource(source);
+          stack.push(card);
+          renderAll();
+          return true;
+        }
+      } else {
+        for (let i = 0; i < 2; i++) {
+          if (jokerSlots[i].length === 0) {
+            removeCardFromSource(source);
+            jokerSlots[i].push(card);
+            renderAll();
+            return true;
+          }
+        }
+      }
+      return false;
+    }
+
+    /* --- ЛОГИКА АВТО-СБОРА (СКАНИРУЕМ ТОЛЬКО ТРОЙКИ) --- */
+    function autoCollectAll() {
+      let moved = false;
+      let keepGoing = true;
+
+      while (keepGoing) {
+        keepGoing = false;
+        for (let i = 0; i < 18; i++) {
+          const triplet = boardData[i];
+          if (triplet.length > 0) {
+            const topCard = triplet[triplet.length - 1];
+            if (!topCard.isJoker) {
+              const stack = foundations[topCard.suit];
+              const currentTopRank = stack.length === 0 ? 1 : stack[stack.length - 1].rank;
+              if (topCard.rank === currentTopRank + 1) {
+                removeCardFromSource({ type: 'triplet', index: i });
+                stack.push(topCard);
+                moved = true;
+                keepGoing = true;
+                break;
+              }
+            }
+          }
+        }
+      }
+
+      if (moved) renderAll();
+    }
+
+    /* --- DRAG & DROP + EVENTS --- */
+    function setupDragAndClickEvents(cardEl, source, cardData) {
+      const onStart = (clientX, clientY) => {
+        draggedCard = cardData;
+        sourceLoc = source;
+
+        const rect = cardEl.getBoundingClientRect();
+        touchOffsetX = clientX - rect.left;
+        touchOffsetY = clientY - rect.top;
+
+        dragEl = cardEl.cloneNode(true);
+        dragEl.classList.add('dragging');
+        dragEl.style.width = rect.width + 'px';
+        dragEl.style.height = rect.height + 'px';
+        dragEl.style.left = (clientX - touchOffsetX) + 'px';
+        dragEl.style.top = (clientY - touchOffsetY) + 'px';
+        document.body.appendChild(dragEl);
+
+        cardEl.style.opacity = '0';
+      };
+
+      const onMove = (clientX, clientY) => {
+        if (!dragEl) return;
+        dragEl.style.left = (clientX - touchOffsetX) + 'px';
+        dragEl.style.top = (clientY - touchOffsetY) + 'px';
+      };
+
+      const onEnd = (clientX, clientY) => {
+        if (!dragEl) return;
+
+        dragEl.style.display = 'none';
+        const dropTarget = document.elementFromPoint(clientX, clientY);
+
+        if (dropTarget) {
+          const targetZone = dropTarget.closest('[data-type]');
+          if (targetZone) {
+            tryMoveCard(draggedCard, sourceLoc, targetZone);
+          }
+        }
+
+        dragEl.remove();
+        dragEl = null;
+        renderAll();
+      };
+
+      // Двойной клик мыши -> только в фундамент
+      cardEl.addEventListener('dblclick', (e) => {
+        e.stopPropagation();
+        autoMoveToFoundation(cardData, source);
+      });
+
+      // События мыши
+      cardEl.addEventListener('mousedown', (e) => {
+        if (e.button !== 0) return;
+        onStart(e.clientX, e.clientY);
+
+        const moveHandler = (me) => onMove(me.clientX, me.clientY);
+        const upHandler = (me) => {
+          onEnd(me.clientX, me.clientY);
+          window.removeEventListener('mousemove', moveHandler);
+          window.removeEventListener('mouseup', upHandler);
+        };
+        window.addEventListener('mousemove', moveHandler);
+        window.addEventListener('mouseup', upHandler);
+      });
+
+      // Сенсорные события (Тапы и Двойной тап)
+      cardEl.addEventListener('touchstart', (e) => {
+        const now = Date.now();
+        const touch = e.touches[0];
+
+        // Проверка Двойного тапа (меньше 300мс)
+        if (now - lastTapTime < 300) {
+          autoMoveToFoundation(cardData, source);
+          lastTapTime = 0;
+          return;
+        }
+        lastTapTime = now;
+
+        onStart(touch.clientX, touch.clientY);
+
+        const moveHandler = (te) => {
+          const t = te.touches[0];
+          onMove(t.clientX, t.clientY);
+        };
+        const endHandler = (te) => {
+          const t = te.changedTouches[0];
+          onEnd(t.clientX, t.clientY);
+          window.removeEventListener('touchmove', moveHandler);
+          window.removeEventListener('touchend', endHandler);
+        };
+        window.addEventListener('touchmove', moveHandler, { passive: true });
+        window.addEventListener('touchend', endHandler);
+      });
+    }
+
+    /* --- LONG PRESS ТОЛЬКО ДЛЯ ЗОНЫ ФУНДАМЕНТА --- */
+    const topBarEl = document.getElementById('top-bar');
+    let topBarLongPressTimer = null;
+
+    topBarEl.addEventListener('touchstart', () => {
+      topBarLongPressTimer = setTimeout(() => {
+        autoCollectAll();
+      }, 500);
+    });
+
+    topBarEl.addEventListener('touchmove', () => {
+      if (topBarLongPressTimer) clearTimeout(topBarLongPressTimer);
+    });
+
+    topBarEl.addEventListener('touchend', () => {
+      if (topBarLongPressTimer) clearTimeout(topBarLongPressTimer);
+    });
+
+    /* --- ПРАВИЛА ХОДОВ --- */
+    function tryMoveCard(card, source, targetZone) {
+      const targetType = targetZone.dataset.type;
+
+      if (targetType === 'triplet') {
+        const tIndex = parseInt(targetZone.dataset.index);
+        const targetTriplet = boardData[tIndex];
+
+        if (targetTriplet.length === 0 || targetTriplet.length >= 3) return false;
+
+        const topTargetCard = targetTriplet[targetTriplet.length - 1];
+        const canPlace = card.isJoker || topTargetCard.isJoker || card.rank === topTargetCard.rank;
+
+        if (canPlace) {
+          removeCardFromSource(source);
+          targetTriplet.push(card);
+          return true;
+        }
+      }
+
+      if (targetType === 'foundation') {
+        if (card.isJoker) return false;
+
+        const fSuit = targetZone.dataset.suit;
+        if (card.suit !== fSuit) return false;
+
+        const stack = foundations[fSuit];
+        const currentTopRank = stack.length === 0 ? 1 : stack[stack.length - 1].rank;
+
+        if (card.rank === currentTopRank + 1) {
+          removeCardFromSource(source);
+          stack.push(card);
+          return true;
+        }
+      }
+
+      if (targetType === 'joker-slot') {
+        if (!card.isJoker) return false;
+
+        const slotIdx = targetZone.id.endsWith('0') ? 0 : 1;
+        if (jokerSlots[slotIdx].length === 0) {
+          removeCardFromSource(source);
+          jokerSlots[slotIdx].push(card);
+          return true;
+        }
+      }
+
+      return false;
+    }
+
+    function removeCardFromSource(source) {
+      if (source.type === 'triplet') {
+        boardData[source.index].pop();
+      } else if (source.type === 'foundation') {
+        foundations[source.suit].pop();
+      } else if (source.type === 'jokerSlot') {
+        jokerSlots[source.index].pop();
+      }
+    }
+
+    function checkWinCondition() {
+      const isBoardEmpty = boardData.every(triplet => triplet.length === 0);
+      if (isBoardEmpty) {
+        document.getElementById('btn-prize').disabled = false;
+      }
+    }
+
+    // Отмена контекстного меню + правый клик для ПК
+    window.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      autoCollectAll();
+    });
+
+    // Обработчики кнопок
+    document.getElementById('btn-reset').addEventListener('click', initGame);
+
+    document.getElementById('btn-prize').addEventListener('click', () => {
+      winCount++;
+      document.getElementById('win-count').textContent = winCount;
+      document.getElementById('btn-prize').disabled = true;
+      alert('Поздравляем! Вы выиграли раунд и получили приз!');
+      initGame();
+    });
+
+    initGame();
+  </script>
+</body>
+</html>
