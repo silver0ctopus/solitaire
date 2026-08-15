@@ -253,26 +253,41 @@
     }
 
     function renderFoundations() {
+      // 1. Отрисовка 4-х слотов мастей
       SUITS.forEach(suit => {
         const slotEl = document.getElementById(`suit-slot-${suit}`);
-        slotEl.querySelectorAll('.card').forEach(c => c.remove());
         const stack = foundations[suit];
+        
+        // Полностью очищаем слот
+        slotEl.innerHTML = '';
+
         if (stack.length > 0) {
+          // Берём строго САМУЮ ВЕРХНЮЮ карту из массива
           const topCard = stack[stack.length - 1];
           const cardEl = createCardElement(topCard);
           setupDragAndClickEvents(cardEl, { type: 'foundation', suit: suit }, topCard);
           slotEl.appendChild(cardEl);
+        } else {
+          // Если стек пуст — возвращаем текстовую иконку масти
+          slotEl.textContent = suit;
         }
       });
 
+      // 2. Отрисовка 2-х слотов джокеров
       jokerSlots.forEach((slotCards, index) => {
         const slotEl = document.getElementById(`joker-slot-${index}`);
-        slotEl.querySelectorAll('.card').forEach(c => c.remove());
+        
+        // Полностью очищаем слот
+        slotEl.innerHTML = '';
+
         if (slotCards.length > 0) {
           const topCard = slotCards[slotCards.length - 1];
           const cardEl = createCardElement(topCard);
           setupDragAndClickEvents(cardEl, { type: 'jokerSlot', index: index }, topCard);
           slotEl.appendChild(cardEl);
+        } else {
+          // Если слот пуст — возвращаем иконку джокера
+          slotEl.textContent = '🃏';
         }
       });
     }
